@@ -1,0 +1,41 @@
+name: Update data
+
+on:
+  schedule:
+    # Weekdays, after the 10:30 ET releases (EIA weekly petroleum Wed, gas storage Thu).
+    # Two runs a day so holiday-shifted releases are still picked up.
+    - cron: "45 15 * * 1-5"
+    - cron: "45 20 * * 1-5"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Fetch EIA data
+        env:
+          EIA_API_KEY: ${{ secrets.EIA_API_KEY }}
+        run: python scripts/fetch.py || echo "FETCH_FAILED=1" >> "$GITHUB_ENV"
+
+      - name: Commit if changed
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git add data/energy.json
+          git diff --cached --quiet || git commit -m "data: $(date -u +%Y-%m-%dT%H:%MZ)"
+          git push
+
+      - name: Flag failures
+        if: env.FETCH_FAILED == '1'
+        run: |
+          echo "One or more series failed validation or fetch. Last good data was kept."
+          exit 1
