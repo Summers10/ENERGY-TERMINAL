@@ -55,7 +55,7 @@ td.stale{color:var(--red) !important;font-weight:800 !important}
 .row-sel td:first-child{box-shadow:inset 3px 0 0 var(--amber)}
 .bal-table tbody tr:hover td{background:var(--bg2)}
 .chart-wrap{position:relative;border:1px solid var(--border2);border-top:none;background:var(--bg);padding:6px 4px 0}
-#chart{width:100%;height:300px;display:block}
+#chart{width:100%;height:320px;display:block}
 .ax{font-family:'Courier New',Courier,monospace;font-size:12px;fill:var(--text3)}
 .legend{float:right;font-size:12px;color:var(--text3);letter-spacing:.05em}
 .legend i{display:inline-block;width:22px;height:0;vertical-align:middle;margin:0 6px 0 14px}
@@ -65,6 +65,11 @@ td.stale{color:var(--red) !important;font-weight:800 !important}
 body.light{--band-op:.14}
 body.dark{--band-op:.35}
 .legend i.sw-band{height:10px;width:16px;background:var(--text3);opacity:calc(var(--band-op) * 2)}
+.fwdbg{fill:var(--bg2)}
+.hl{font-family:'Courier New',Courier,monospace;font-size:13px;font-weight:800;fill:var(--text)}
+.tfs{margin-left:18px}
+.tf{padding:3px 10px;margin-right:2px;background:none;border:1px solid var(--border2);color:var(--text3);cursor:pointer;font-family:inherit;font-size:12px;font-weight:700;letter-spacing:.06em}
+.tf.on{background:var(--amber);border-color:var(--amber);color:#000}
 .tip{position:absolute;top:14px;display:none;pointer-events:none;background:var(--bg1);border:1px solid var(--border2);border-left:3px solid var(--amber);padding:6px 10px;font-size:12px;color:var(--text2);white-space:nowrap;line-height:1.5}
 .tip b{color:var(--text)}
 .page-footnote{font-size:11px;color:var(--text3);line-height:1.6;margin:28px 0 4px;padding-top:14px;border-top:1px solid var(--border2)}
@@ -144,61 +149,83 @@ function render() {
   html += `<div class="page-footnote"><ul>
     <li>Next releases: <b>Petroleum ${nextRelease(3)}</b> · <b>Gas storage ${nextRelease(4)}</b>. Holidays shift release days.</li>
     <li>Crude commercial stocks exclude the SPR. Gasoline = total motor gasoline. Distillates = ULSD / heating oil. NatGas = working gas in storage.</li>
-    <li>5-yr avg and range = same week in each of the prior 5 years. Click a row to chart it. Red AS OF = data out of date or last fetch failed (hover row for detail).</li>
+    <li>5-yr avg and range = same week in each of the prior 5 years. The shaded area on the right shows the next ~4 months of that 5-yr pattern (history only, no estimate). H / L = high and low in the selected window.</li>
+    <li>Click a row to chart it. Red AS OF = data out of date or last fetch failed (hover row for detail).</li>
     <li>Source: U.S. Energy Information Administration.</li></ul></div>`;
   document.getElementById("root").innerHTML = html;
   wireChart();
 }
 
-// ---- Chart: selected stockpile, last 3 years, vs its 5-yr avg ----
-const CW = 1250, CH = 300, M = { l:70, r:20, t:16, b:30 };
-let CHART = null;
+// ---- Chart: selected stockpile vs its 5-yr avg/range, with the 5-yr pattern continued ahead ----
+const CW = 1250, CH = 320, M = { l:70, r:20, t:26, b:30 };
+let CHART = null, years = 1;
 
 function chartPanel(s) {
-  const h = (s.history || []).map(([d, v, a, mn, mx]) => ({ d:new Date(d + "T00:00:00Z"), v, a, mn, mx }));
+  const all = (s.history || []).map(([d, v, a, mn, mx]) => ({ d:new Date(d + "T00:00:00Z"), v, a, mn, mx }));
+  const h = all.slice(-(years * 52 + 1));
+  const f = (s.forward || []).map(([d, a, mn, mx]) => ({ d:new Date(d + "T00:00:00Z"), a, mn, mx }));
   if (h.length < 2) return "";
-  const vals = h.flatMap(p => [p.v, p.a, p.mn, p.mx].filter(v => v != null));
+  const last = h[h.length - 1];
+  const vals = [...h, ...f].flatMap(p => [p.v, p.a, p.mn, p.mx].filter(v => v != null));
   let lo = Math.min(...vals), hi = Math.max(...vals);
   const pad = (hi - lo) * 0.08 || 1; lo -= pad; hi += pad;
-  const t0 = h[0].d, t1 = h[h.length - 1].d;
+  const t0 = h[0].d, t1 = f.length ? f[f.length - 1].d : last.d;
   const x = d => M.l + (d - t0) / (t1 - t0) * (CW - M.l - M.r);
   const y = v => M.t + (hi - v) / (hi - lo) * (CH - M.t - M.b);
-  const path = key => h.reduce((acc, p) => {
-    if (p[key] == null) return acc + " ";
-    const cmd = acc === "" || acc.endsWith(" ") ? "M" : "L";
-    return acc + `${cmd}${x(p.d).toFixed(1)},${y(p[key]).toFixed(1)}`;
-  }, "");
-  // 5-yr min-max band (polygon over the weeks that have it)
-  const bandPts = h.filter(p => p.mn != null && p.mx != null);
-  const band = bandPts.length < 2 ? "" :
-    bandPts.map(p => `${x(p.d).toFixed(1)},${y(p.mx).toFixed(1)}`).join(" ") + " " +
-    bandPts.slice().reverse().map(p => `${x(p.d).toFixed(1)},${y(p.mn).toFixed(1)}`).join(" ");
-  // y grid: ~5 nice ticks
+  const P = (d, v) => `${x(d).toFixed(1)},${y(v).toFixed(1)}`;
+  const line = (pts, key) => pts.filter(p => p[key] != null).map((p, i) => (i ? "L" : "M") + P(p.d, p[key])).join("");
+  const area = (pts, k1, k2) => {
+    const q = pts.filter(p => p[k1] != null && p[k2] != null);
+    return q.length < 2 ? "" : q.map(p => P(p.d, p[k2])).join(" ") + " " + q.slice().reverse().map(p => P(p.d, p[k1])).join(" ");
+  };
+  // 5-yr band/avg run through history and on into the forward window
+  const ctx = [...h, ...f];
+  const band = area(ctx, "mn", "mx");
+
+  // y grid
   const raw = (hi - lo) / 5, mag = 10 ** Math.floor(Math.log10(raw));
   const step = [1, 2, 2.5, 5, 10].map(m => m * mag).find(st => st >= raw);
   let grid = "";
   for (let v = Math.ceil(lo / step) * step; v <= hi; v += step)
     grid += `<line x1="${M.l}" x2="${CW - M.r}" y1="${y(v)}" y2="${y(v)}" stroke="var(--border)" />
       <text x="${M.l - 8}" y="${y(v) + 4}" text-anchor="end" class="ax">${fmt(v, step < 1 ? 1 : 0)}</text>`;
-  // x ticks: each Jan 1 and Jul 1
+  // x ticks: quarterly for 1-2y, yearly for 5y
+  const months = years >= 5 ? [0] : [0, 3, 6, 9], MN = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
   for (let yr = t0.getUTCFullYear(); yr <= t1.getUTCFullYear(); yr++)
-    for (const mo of [0, 6]) {
+    for (const mo of months) {
       const d = new Date(Date.UTC(yr, mo, 1));
       if (d < t0 || d > t1) continue;
       grid += `<line x1="${x(d)}" x2="${x(d)}" y1="${CH - M.b}" y2="${CH - M.b + 5}" stroke="var(--border2)" />
-        <text x="${x(d)}" y="${CH - 8}" text-anchor="middle" class="ax">${mo ? "Jul" : "Jan"} ${yr}</text>`;
+        <text x="${x(d)}" y="${CH - 8}" text-anchor="middle" class="ax">${years >= 5 ? yr : MN[mo] + " " + String(yr).slice(2)}</text>`;
     }
-  CHART = { s, h, x, y };
+  // high / low of the level in the visible window
+  let hp = h[0], lp = h[0];
+  for (const p of h) { if (p.v > hp.v) hp = p; if (p.v < lp.v) lp = p; }
+  const mark = (p, kind) => {
+    const px = x(p.d), py = y(p.v), up = kind === "H";
+    const anchor = px > CW - 160 ? "end" : px < M.l + 90 ? "start" : "middle";
+    return `<circle cx="${px}" cy="${py}" r="4" fill="var(--bg)" stroke="var(--text)" stroke-width="2" />
+      <text x="${px}" y="${up ? py - 10 : py + 18}" text-anchor="${anchor}" class="hl">${kind} ${fmt(p.v, s.decimals)}
+      <tspan class="ax"> ${p.d.toLocaleDateString("en-US", { month:"short", day:"numeric", year:"2-digit", timeZone:"UTC" })}</tspan></text>`;
+  };
+  const xNow = x(last.d);
+  CHART = { s, pts:[...h.map(p => ({ ...p, kind:"act" })), ...f.map(p => ({ ...p, kind:"fwd" }))], x, y };
+  const btns = [1, 2, 5].map(n => `<button class="tf${n === years ? " on" : ""}" onclick="years=${n};render()">${n}Y</button>`).join("");
   return `<div class="panel"><div class="panel-hdr"><span class="panel-title">${s.label}</span>
-      <span class="panel-sub">${s.unit} · last 3 years</span>
-      <span class="legend"><i class="sw-level"></i>Level <i class="sw-avg"></i>5-yr avg <i class="sw-band"></i>5-yr range</span></div>
-    <div class="chart-wrap" id="chart-wrap">
+      <span class="panel-sub">${s.unit}</span><span class="tfs">${btns}</span>
+      <span class="legend"><i class="sw-level"></i>Level <i class="sw-avg"></i>5-yr avg <i class="sw-band"></i>5-yr range
+</span></div>
+    <div class="chart-wrap">
       <svg viewBox="0 0 ${CW} ${CH}" id="chart" preserveAspectRatio="none">
+        ${f.length ? `<rect x="${xNow}" y="${M.t}" width="${CW - M.r - xNow}" height="${CH - M.t - M.b}" class="fwdbg" />
+          <text x="${xNow + 6}" y="${M.t - 8}" class="ax">5-YR PATTERN AHEAD →</text>` : ""}
         ${grid}
         <line x1="${M.l}" x2="${CW - M.r}" y1="${CH - M.b}" y2="${CH - M.b}" stroke="var(--border2)" />
         ${band ? `<polygon points="${band}" class="band" />` : ""}
-        <path d="${path("a")}" fill="none" stroke="var(--text3)" stroke-width="2" stroke-dasharray="6 4" vector-effect="non-scaling-stroke" />
-        <path d="${path("v")}" fill="none" stroke="var(--amber)" stroke-width="2" vector-effect="non-scaling-stroke" />
+        <path d="${line(ctx, "a")}" fill="none" stroke="var(--text3)" stroke-width="2" stroke-dasharray="6 4" vector-effect="non-scaling-stroke" />
+        <path d="${line(h, "v")}" fill="none" stroke="var(--amber)" stroke-width="2" vector-effect="non-scaling-stroke" />
+        ${f.length ? `<line x1="${xNow}" x2="${xNow}" y1="${M.t}" y2="${CH - M.b}" stroke="var(--border2)" vector-effect="non-scaling-stroke" />` : ""}
+        ${mark(hp, "H")}${mark(lp, "L")}
         <line id="xhair" y1="${M.t}" y2="${CH - M.b}" stroke="var(--text3)" stroke-width="1" visibility="hidden" vector-effect="non-scaling-stroke" />
         <circle id="dot" r="4" fill="var(--amber)" stroke="var(--bg)" stroke-width="2" visibility="hidden" />
       </svg>
@@ -209,22 +236,23 @@ function chartPanel(s) {
 function wireChart() {
   const svg = document.getElementById("chart");
   if (!svg || !CHART) return;
-  const { s, h, x, y } = CHART, tip = document.getElementById("tip"),
-        xh = document.getElementById("xhair"), dot = document.getElementById("dot");
+  const { s, pts, x, y } = CHART, tip = document.getElementById("tip"),
+        xh = document.getElementById("xhair"), dot = document.getElementById("dot"), d = s.decimals;
   svg.addEventListener("mousemove", e => {
     const r = svg.getBoundingClientRect(), mx = (e.clientX - r.left) / r.width * CW;
-    let best = h[0];
-    for (const p of h) if (Math.abs(x(p.d) - mx) < Math.abs(x(best.d) - mx)) best = p;
-    const px = x(best.d);
+    let b = pts[0];
+    for (const p of pts) if (Math.abs(x(p.d) - mx) < Math.abs(x(b.d) - mx)) b = p;
+    const px = x(b.d), val = b.kind === "act" ? b.v : b.a;
     xh.setAttribute("x1", px); xh.setAttribute("x2", px); xh.setAttribute("visibility", "visible");
-    dot.setAttribute("cx", px); dot.setAttribute("cy", y(best.v)); dot.setAttribute("visibility", "visible");
-    const diff = best.a == null ? null : best.v - best.a;
-    tip.innerHTML = `<b>Wk ${best.d.toLocaleDateString("en-US", { month:"short", day:"2-digit", year:"numeric", timeZone:"UTC" })}</b><br>
-      Level&nbsp;&nbsp;&nbsp;${fmt(best.v, s.decimals)} ${s.unit}<br>
-      5-yr avg ${fmt(best.a, s.decimals)}<br>
-      5-yr rng ${fmt(best.mn, s.decimals)}–${fmt(best.mx, s.decimals)}<br>vs 5-yr&nbsp; ${signed(diff, s.decimals)}`;
+    dot.setAttribute("cx", px); dot.setAttribute("cy", y(val)); dot.setAttribute("visibility", "visible");
+    dot.setAttribute("fill", b.kind === "act" ? "var(--amber)" : "var(--text3)");
+    const wk = "Wk " + b.d.toLocaleDateString("en-US", { month:"short", day:"2-digit", year:"numeric", timeZone:"UTC" });
+    const rng = b.mn == null ? "—" : `${fmt(b.mn, d)}–${fmt(b.mx, d)}`;
+    tip.innerHTML = b.kind === "act"
+      ? `<b>${wk}</b><br>Level&nbsp;&nbsp;&nbsp;${fmt(b.v, d)} ${s.unit}<br>5-yr avg ${fmt(b.a, d)}<br>5-yr rng ${rng}<br>vs 5-yr&nbsp; ${signed(b.a == null ? null : b.v - b.a, d)}`
+      : `<b>${wk} · 5-YR PATTERN</b><br>5-yr avg ${fmt(b.a, d)} ${s.unit}<br>5-yr rng ${rng}`;
     const left = px / CW * r.width;
-    tip.style.left = (left > r.width - 200 ? left - 190 : left + 12) + "px";
+    tip.style.left = (left > r.width - 220 ? left - 210 : left + 12) + "px";
     tip.style.display = "block";
   });
   svg.addEventListener("mouseleave", () => {
