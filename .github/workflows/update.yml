@@ -2,10 +2,13 @@ name: Update data
  
 on:
   schedule:
-    # Weekdays, after the 10:30 ET releases (EIA weekly petroleum Wed, gas storage Thu).
-    # Two runs a day so holiday-shifted releases are still picked up.
+    # Weekdays, after the Eastern release clock. 15:45 UTC is 10:45 a.m. EST /
+    # 11:45 a.m. EDT (after 10:30 a.m.). 20:45 UTC is 3:45 p.m. EST / 4:45 p.m. EDT
+    # (after a noon holiday release). 22:15 UTC is 5:15 p.m. EST / 6:15 p.m. EDT,
+    # so a published 5:00 p.m. ET holiday release is still picked up the same day.
     - cron: "45 15 * * 1-5"
     - cron: "45 20 * * 1-5"
+    - cron: "15 22 * * 1-5"
   workflow_dispatch:
  
 permissions:
@@ -30,9 +33,13 @@ jobs:
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@users.noreply.github.com"
-          git add data/energy.json
-          git diff --cached --quiet || git commit -m "data: $(date -u +%Y-%m-%dT%H:%MZ)"
-          git push
+          if [ -f data/energy.json ]; then
+            git add data/energy.json
+            if ! git diff --cached --quiet; then
+              git commit -m "data: $(date -u +%Y-%m-%dT%H:%MZ)"
+              git push origin HEAD
+            fi
+          fi
  
       - name: Flag failures
         if: env.FETCH_FAILED == '1'

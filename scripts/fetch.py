@@ -12,6 +12,7 @@ import calendar
 import datetime as dt
 import json
 import os
+import re
 import sys
 import time
 import urllib.request
@@ -23,14 +24,27 @@ FORWARD_WEEKS = 13    # ~3 months of the 5-yr pattern shown ahead
 API = "https://api.eia.gov/v2/seriesid/{sid}?api_key={key}"
  
 # key, tab, label, EIA series id, freq, transform, display unit, decimals,
-# sane range (display units), max sane period change (display units)
+# sane range (display units), max sane period change (display units), source page
 SERIES = [
-    ("crude_stocks",  "crude", "Crude (commercial)",      "PET.WCESTUS1.W",              "W", "k_to_m", "M bbl",  1, (300, 600),    25),
-    ("cushing",       "crude", "Crude (Cushing)",        "PET.W_EPC0_SAX_YCUOK_MBBL.W", "W", "k_to_m", "M bbl",  1, (5, 100),      10),
-    ("gas_stocks",    "gaso",  "Gasoline",              "PET.WGTSTUS1.W",              "W", "k_to_m", "M bbl",  1, (180, 280),    15),
-    ("dist_stocks",   "dist",  "Distillates",           "PET.WDISTUS1.W",              "W", "k_to_m", "M bbl",  1, (80, 200),     15),
-    ("ng_storage",   "ng",    "NatGas (Lower 48)",    "NG.NW2_EPG0_SWO_R48_BCF.W",   "W", "none",   "Bcf",    0, (500, 4500),   400),
+    ("crude_stocks", "crude", "Crude (commercial)", "PET.WCESTUS1.W", "W", "k_to_m", "M bbl", 1, (300, 600), 25,
+     "https://www.eia.gov/dnav/pet/hist/LeafHandler.ashx?n=PET&s=WCESTUS1&f=W"),
+    ("cushing", "crude", "Crude (Cushing)", "PET.W_EPC0_SAX_YCUOK_MBBL.W", "W", "k_to_m", "M bbl", 1, (5, 100), 10,
+     "https://www.eia.gov/dnav/pet/hist/LeafHandler.ashx?n=PET&s=W_EPC0_SAX_YCUOK_MBBL&f=W"),
+    ("gas_stocks", "gaso", "Gasoline", "PET.WGTSTUS1.W", "W", "k_to_m", "M bbl", 1, (180, 280), 15,
+     "https://www.eia.gov/dnav/pet/hist/LeafHandler.ashx?n=PET&s=WGTSTUS1&f=W"),
+    ("dist_stocks", "dist", "Distillates", "PET.WDISTUS1.W", "W", "k_to_m", "M bbl", 1, (80, 200), 15,
+     "https://www.eia.gov/dnav/pet/hist/LeafHandler.ashx?n=PET&s=WDISTUS1&f=W"),
+    ("ng_storage", "ng", "NatGas (Lower 48)", "NG.NW2_EPG0_SWO_R48_BCF.W", "W", "none", "Bcf", 0, (500, 4500), 400,
+     "https://www.eia.gov/dnav/ng/hist/nw2_epg0_swo_r48_bcfw.htm"),
 ]
+
+
+def redact(msg, key):
+    """Keep the EIA key out of saved errors and the public page."""
+    text = str(msg)
+    if key:
+        text = text.replace(key, "[redacted]")
+    return re.sub(r"(api_key=)[^&\s\"']+", r"\1[redacted]", text)
  
  
 def parse_period(p, freq):
@@ -109,7 +123,7 @@ def five_year_avg(series, d, freq):
  
  
 def build(cfg, rows, previous):
-    key, tab, label, sid, freq, kind, unit, dec, (lo, hi), maxchg = cfg
+    key, tab, label, sid, freq, kind, unit, dec, (lo, hi), maxchg, source_url = cfg
     s = to_series(rows, freq, kind)
     if len(s) < 300 // (1 if freq == "W" else 4):
         raise ValueError(f"too little history ({len(s)} obs)")
@@ -147,7 +161,7 @@ def build(cfg, rows, previous):
     return {
         "history": history,
         "forward": forward,
-        "key": key, "tab": tab, "label": label, "series_id": sid,
+        "key": key, "tab": tab, "label": label, "series_id": sid, "source_url": source_url,
         "freq": freq, "unit": unit, "decimals": dec,
         "period": d1.isoformat(), "value": v1,
         "prev_period": d0.isoformat(), "change": v1 - v0,
@@ -178,11 +192,12 @@ def main():
             print(f"OK   {k:14s} {rec['period']}  {rec['value']:.2f}")
         except Exception as e:
             failures += 1
-            print(f"FAIL {k:14s} {e}", file=sys.stderr)
+            print(f"FAIL {k:14s} {redact(e, key)}", file=sys.stderr)
             rec = dict(previous.get(k) or {"key": k, "tab": cfg[1], "label": cfg[2],
                                             "series_id": cfg[3], "freq": cfg[4],
                                             "unit": cfg[6], "decimals": cfg[7]})
-            rec["ok"], rec["error"] = False, str(e)
+            rec["source_url"] = cfg[-1]
+            rec["ok"], rec["error"] = False, redact(e, key)
         out.append(rec)
  
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
