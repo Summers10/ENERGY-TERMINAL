@@ -44,7 +44,7 @@ body.light{
 .bal-table th:first-child{text-align:left;letter-spacing:.08em}
 .bal-table th.latest{color:var(--amber);font-weight:900;border-bottom:2px solid var(--amber)}
 .bal-table td{padding:5px 8px;text-align:right;font-size:15px;font-weight:600;border-bottom:1px solid var(--border);color:var(--text2);white-space:nowrap;background:var(--bg)}
-.bal-table td:first-child{text-align:left;color:var(--text);font-weight:700}
+.bal-table td:first-child{text-align:left;color:var(--text);font-weight:700;white-space:normal}
 td.latest{color:var(--amber) !important;font-weight:800 !important}
 td.prior{color:var(--text3)}
 td.unit{color:var(--text3);text-align:left !important;font-size:13px !important}
@@ -76,7 +76,14 @@ body.dark{--band-op:.35}
 .page-footnote ul{margin:0;padding-left:16px}
 .page-footnote li{margin:2px 0}
 .page-footnote b{color:var(--text2)}
-.banner{padding:10px 14px;margin-bottom:18px;border:1px solid var(--red);color:var(--red);font-size:14px;font-weight:700;letter-spacing:.04em}
+.banner{padding:10px 14px;margin-bottom:18px;border:1px solid var(--red);color:var(--red);font-size:14px;font-weight:700;letter-spacing:.04em;white-space:normal;overflow-wrap:anywhere}
+.meta{white-space:normal}
+.name{white-space:nowrap}
+.series-link{margin-left:8px;color:var(--amber);font-size:12px;font-weight:800;letter-spacing:.04em;text-decoration:underline;text-underline-offset:2px}
+.series-link:hover{color:var(--text)}
+.sub{display:block;max-width:520px;margin-top:2px;font-size:12px;font-weight:600;letter-spacing:.02em;color:var(--text3);white-space:normal}
+.err{display:block;max-width:640px;margin-top:3px;font-size:12px;font-weight:800;color:var(--red);white-space:normal;overflow-wrap:anywhere}
+.page-footnote a{color:var(--text2)}
 </style>
 </head>
 <body class="light">
@@ -84,6 +91,7 @@ body.dark{--band-op:.35}
 <div class="topbar"><h1>U.S. Energy Stockpiles</h1><div class="meta" id="meta">Loading...</div></div>
 <div class="root" id="root"></div>
 
+<script src="scripts/release-calendar.js"></script>
 <script>
 const STALE_DAYS = { W:14, M:125 };
 let DATA = null, theme = "light", selected = "crude_stocks";
@@ -95,6 +103,61 @@ const signed = (v, d) => {
   const r = Math.round(v * 10 ** d) / 10 ** d || 0; // avoid "-0.0"
   return (r > 0 ? "+" : "") + fmt(r, d);
 };
+const SOURCE = {
+  "PET.WCESTUS1.W": "https://www.eia.gov/dnav/pet/hist/LeafHandler.ashx?n=PET&s=WCESTUS1&f=W",
+  "PET.W_EPC0_SAX_YCUOK_MBBL.W": "https://www.eia.gov/dnav/pet/hist/LeafHandler.ashx?n=PET&s=W_EPC0_SAX_YCUOK_MBBL&f=W",
+  "PET.WGTSTUS1.W": "https://www.eia.gov/dnav/pet/hist/LeafHandler.ashx?n=PET&s=WGTSTUS1&f=W",
+  "PET.WDISTUS1.W": "https://www.eia.gov/dnav/pet/hist/LeafHandler.ashx?n=PET&s=WDISTUS1&f=W",
+  "NG.NW2_EPG0_SWO_R48_BCF.W": "https://www.eia.gov/dnav/ng/hist/nw2_epg0_swo_r48_bcfw.htm"
+};
+const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({
+  "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+}[c]));
+function safeEiaUrl(u) {
+  try {
+    const url = new URL(u);
+    if (url.protocol !== "https:") return "";
+    if (!/^(?:www\.|ir\.)?eia\.gov$/.test(url.hostname)) return "";
+    return url.href;
+  } catch (e) {
+    return "";
+  }
+}
+function sourceUrl(s) {
+  return safeEiaUrl((s && (s.source_url || SOURCE[s.series_id])) || "");
+}
+function fmtInstant(iso) {
+  if (!iso) return "not available";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "not available";
+  const g = {};
+  new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    month: "short", day: "numeric", year: "numeric",
+    hour: "numeric", minute: "2-digit", hour12: true
+  }).formatToParts(d).forEach(p => { if (p.type !== "literal") g[p.type] = p.value; });
+  const mer = /p/i.test(g.dayPeriod || "") ? "p.m." : "a.m.";
+  return `${g.month} ${g.day}, ${g.year}, ${g.hour}:${g.minute} ${mer} ET`;
+}
+function nextPetroleumText() {
+  return typeof EIARelease === "undefined" ? "not available" : EIARelease.nextPetroleum(new Date());
+}
+function nextGasText() {
+  return typeof EIARelease === "undefined" ? "not available" : EIARelease.nextGas(new Date());
+}
+function latestSuccess(data) {
+  let best = null;
+  (data.series || []).forEach(s => {
+    if (!s || !s.checked_at) return;
+    const t = Date.parse(s.checked_at);
+    if (!Number.isNaN(t) && (best == null || t > best)) best = t;
+  });
+  return best == null ? "not available" : fmtInstant(new Date(best).toISOString());
+}
+function metaLine(data) {
+  const attempt = data.generated_at ? fmtInstant(data.generated_at) : "not available";
+  return `Last fetch attempt: ${attempt} · Last successful ingestion: ${latestSuccess(data)}`;
+}
 const ageDays = iso => (Date.now() - new Date(iso + "T00:00:00Z")) / 864e5;
 const isBad = s => !s || !s.ok || !s.period || ageDays(s.period) > STALE_DAYS[s.freq];
 const asOf = s => {
@@ -106,25 +169,21 @@ const asOf = s => {
   return t + (!s.ok ? " · LAST GOOD" : isBad(s) ? " · STALE" : "");
 };
 
-function nextRelease(weekday) { // 3 = Wed, 4 = Thu; 10:30 ET
-  const p = Object.fromEntries(new Intl.DateTimeFormat("en-US", { timeZone:"America/New_York",
-    weekday:"short", hour:"numeric", minute:"numeric", hour12:false }).formatToParts(new Date())
-    .map(x => [x.type, x.value]));
-  const today = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].indexOf(p.weekday);
-  const past = (+p.hour % 24) * 60 + +p.minute >= 630;
-  let ahead = (weekday - today + 7) % 7;
-  if (ahead === 0 && past) ahead = 7;
-  return new Date(Date.now() + ahead * 864e5).toLocaleDateString("en-US",
-    { weekday:"short", month:"short", day:"numeric", timeZone:"America/New_York" }) + " 10:30 ET";
-}
-
 function row(name, s, i) {
   s = s || {};
   const chg = s.freq === "M" ? "m/m" : "w/w";
   const sel = s.key === selected ? " row-sel" : "";
-  return `<tr class="${i % 2 ? "row-alt" : ""}${sel}" style="cursor:pointer" onclick="selected='${s.key}';render()"
-    title="${s.error || "Click to chart"}">
-    <td>${name}</td><td class="unit">${s.unit || ""}</td>
+  const key = /^[A-Za-z0-9_]+$/.test(s.key || "") ? s.key : "";
+  const url = sourceUrl(s);
+  const link = url
+    ? ` <a class="series-link" href="${esc(url)}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">EIA source</a>`
+    : `<span class="sub">EIA source: not available</span>`;
+  const err = s.ok === false
+    ? `<div class="err">Fetch error: ${esc(s.error || "not available")}</div>` : "";
+  return `<tr class="${i % 2 ? "row-alt" : ""}${sel}" style="cursor:pointer" onclick="selected='${key}';render()" title="Click to chart">
+    <td><span class="name">${esc(name)}</span>${link}
+      <div class="sub">Last successful ingestion: ${esc(fmtInstant(s.checked_at))}</div>${err}</td>
+    <td class="unit">${esc(s.unit || "")}</td>
     <td class="latest">${fmt(s.value, s.decimals)}</td>
     <td>${signed(s.change, s.decimals)} <span style="color:var(--text3);font-size:12px">${chg}</span></td>
     <td class="prior">${fmt(s.avg5, s.decimals)}</td>
@@ -140,6 +199,9 @@ function render() {
   if (!DATA) return;
   const runAge = (Date.now() - new Date(DATA.generated_at)) / 864e5;
   let html = runAge > 4 ? `<div class="banner">UPDATE JOB LAST RAN ${Math.floor(runAge)} DAYS AGO — CHECK GITHUB ACTIONS</div>` : "";
+  const failed = DATA.series.filter(s => s && s.ok === false);
+  if (failed.length) html += `<div class="banner">FETCH ERROR — ${failed.map(s =>
+    `${esc(s.label || s.key || "series")}: ${esc(s.error || "not available")}`).join(" · ")}</div>`;
   const body = DATA.series.map((s, i) => row(s.label, s, i)).join("");
   html += `<div class="panel"><div class="tbl-wrap"><table class="bal-table"><thead><tr>
     <th>ITEM</th><th style="text-align:left">UNIT</th><th class="latest">LATEST</th><th>CHANGE</th>
@@ -147,11 +209,11 @@ function render() {
     <tbody>${body}</tbody></table></div></div>`;
   html += chartPanel(DATA.series.find(s => s.key === selected) || DATA.series[0]);
   html += `<div class="page-footnote"><ul>
-    <li>Next releases: <b>Petroleum ${nextRelease(3)}</b> · <b>Gas storage ${nextRelease(4)}</b>. Holidays shift release days.</li>
+    <li>Next releases: <b>Petroleum ${esc(nextPetroleumText())}</b> · <b>Gas storage ${esc(nextGasText())}</b>. Holiday times come from the <a href="https://www.eia.gov/petroleum/supply/weekly/schedule.php" target="_blank" rel="noopener noreferrer">Weekly Petroleum Status Report schedule</a> and the <a href="https://ir.eia.gov/ngs/schedule.html" target="_blank" rel="noopener noreferrer">Weekly Natural Gas Storage Report schedule</a>. A shift EIA has not published yet shows as not available.</li>
     <li>Crude commercial stocks exclude the SPR. Gasoline = total motor gasoline. Distillates = ULSD / heating oil. NatGas = working gas in storage.</li>
     <li>5-yr avg and range = same week in each of the prior 5 years. The shaded area on the right shows the next ~3 months of that 5-yr pattern (history only, no estimate). H / L = high and low in the selected window.</li>
-    <li>Click a row to chart it. Red AS OF = data out of date or last fetch failed (hover row for detail).</li>
-    <li>Source: U.S. Energy Information Administration.</li></ul></div>`;
+    <li>Click a row to chart it. Last successful ingestion is the last time that series was fetched and accepted. A fetch error is shown on the row. Red AS OF means the period is out of date or the last fetch failed.</li>
+    <li>Source: U.S. Energy Information Administration. Each series links to its page on eia.gov.</li></ul></div>`;
   document.getElementById("root").innerHTML = html;
   wireChart();
 }
@@ -272,8 +334,7 @@ fetch("data/energy.json", { cache:"no-store" })
   .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
   .then(d => {
     DATA = d;
-    document.getElementById("meta").textContent = "Updated " +
-      new Date(d.generated_at).toLocaleString("en-US", { dateStyle:"medium", timeStyle:"short" });
+    document.getElementById("meta").textContent = metaLine(d);
     render();
   })
   .catch(() => {
