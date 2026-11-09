@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-11-07T00:21:21+00:00",
+ "generated_at": "2026-11-09T23:51:18+00:00",
  "source": "U.S. Energy Information Administration",
  "series": [
   {
@@ -1923,6 +1923,7 @@
    "tab": "crude",
    "label": "Crude (commercial)",
    "series_id": "PET.WCESTUS1.W",
+   "source_url": "https://www.eia.gov/dnav/pet/hist/LeafHandler.ashx?n=PET&s=WCESTUS1&f=W",
    "freq": "W",
    "unit": "M bbl",
    "decimals": 1,
@@ -1935,7 +1936,7 @@
    "vs_avg5_pct": -4.335486967764589,
    "ok": true,
    "error": null,
-   "checked_at": "2026-11-07T00:21:21+00:00"
+   "checked_at": "2026-11-09T23:51:18+00:00"
   },
   {
    "history": [
@@ -3858,6 +3859,7 @@
    "tab": "crude",
    "label": "Crude (Cushing)",
    "series_id": "PET.W_EPC0_SAX_YCUOK_MBBL.W",
+   "source_url": "https://www.eia.gov/dnav/pet/hist/LeafHandler.ashx?n=PET&s=W_EPC0_SAX_YCUOK_MBBL&f=W",
    "freq": "W",
    "unit": "M bbl",
    "decimals": 1,
@@ -3870,7 +3872,7 @@
    "vs_avg5_pct": 9.155437342776107,
    "ok": true,
    "error": null,
-   "checked_at": "2026-11-07T00:21:21+00:00"
+   "checked_at": "2026-11-09T23:51:18+00:00"
   },
   {
    "history": [
@@ -5793,6 +5795,7 @@
    "tab": "gaso",
    "label": "Gasoline",
    "series_id": "PET.WGTSTUS1.W",
+   "source_url": "https://www.eia.gov/dnav/pet/hist/LeafHandler.ashx?n=PET&s=WGTSTUS1&f=W",
    "freq": "W",
    "unit": "M bbl",
    "decimals": 1,
@@ -5805,7 +5808,7 @@
    "vs_avg5_pct": -1.5929140191880538,
    "ok": true,
    "error": null,
-   "checked_at": "2026-11-07T00:21:21+00:00"
+   "checked_at": "2026-11-09T23:51:18+00:00"
   },
   {
    "history": [
@@ -7728,6 +7731,7 @@
    "tab": "dist",
    "label": "Distillates",
    "series_id": "PET.WDISTUS1.W",
+   "source_url": "https://www.eia.gov/dnav/pet/hist/LeafHandler.ashx?n=PET&s=WDISTUS1&f=W",
    "freq": "W",
    "unit": "M bbl",
    "decimals": 1,
@@ -7740,7 +7744,7 @@
    "vs_avg5_pct": -13.319395832023421,
    "ok": true,
    "error": null,
-   "checked_at": "2026-11-07T00:21:21+00:00"
+   "checked_at": "2026-11-09T23:51:18+00:00"
   },
   {
    "history": [
@@ -9663,6 +9667,7 @@
    "tab": "ng",
    "label": "NatGas (Lower 48)",
    "series_id": "NG.NW2_EPG0_SWO_R48_BCF.W",
+   "source_url": "https://www.eia.gov/dnav/ng/hist/nw2_epg0_swo_r48_bcfw.htm",
    "freq": "W",
    "unit": "Bcf",
    "decimals": 0,
@@ -9675,7 +9680,7 @@
    "vs_avg5_pct": 1.4844876381694854,
    "ok": true,
    "error": null,
-   "checked_at": "2026-11-07T00:21:21+00:00"
+   "checked_at": "2026-11-09T23:51:18+00:00"
   }
  ]
 }
