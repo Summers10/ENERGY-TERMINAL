@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-11-21T03:12:18+00:00",
+ "generated_at": "2026-11-24T02:34:18+00:00",
  "source": "U.S. Energy Information Administration",
  "series": [
   {
@@ -1936,7 +1936,7 @@
    "vs_avg5_pct": -3.3843024495423286,
    "ok": true,
    "error": null,
-   "checked_at": "2026-11-21T03:12:18+00:00"
+   "checked_at": "2026-11-24T02:34:18+00:00"
   },
   {
    "history": [
@@ -3872,7 +3872,7 @@
    "vs_avg5_pct": 5.349041475619865,
    "ok": true,
    "error": null,
-   "checked_at": "2026-11-21T03:12:18+00:00"
+   "checked_at": "2026-11-24T02:34:18+00:00"
   },
   {
    "history": [
@@ -5808,7 +5808,7 @@
    "vs_avg5_pct": 2.6447728162871216,
    "ok": true,
    "error": null,
-   "checked_at": "2026-11-21T03:12:18+00:00"
+   "checked_at": "2026-11-24T02:34:18+00:00"
   },
   {
    "history": [
@@ -7744,7 +7744,7 @@
    "vs_avg5_pct": -6.842110871928228,
    "ok": true,
    "error": null,
-   "checked_at": "2026-11-21T03:12:18+00:00"
+   "checked_at": "2026-11-24T02:34:18+00:00"
   },
   {
    "history": [
@@ -9680,7 +9680,7 @@
    "vs_avg5_pct": 2.018290760012619,
    "ok": true,
    "error": null,
-   "checked_at": "2026-11-21T03:12:18+00:00"
+   "checked_at": "2026-11-24T02:34:18+00:00"
   }
  ]
 }
