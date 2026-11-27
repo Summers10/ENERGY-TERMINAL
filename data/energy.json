@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-11-27T00:00:03+00:00",
+ "generated_at": "2026-11-27T03:17:14+00:00",
  "source": "U.S. Energy Information Administration",
  "series": [
   {
@@ -1934,8 +1934,8 @@
    "avg5": 433.8232,
    "vs_avg5": -14.91719999999998,
    "vs_avg5_pct": -3.4385436279110895,
-   "ok": true,
-   "error": null,
+   "ok": false,
+   "error": "latest period 2026-10-30 older than saved 2026-11-20",
    "checked_at": "2026-11-27T00:00:03+00:00"
   },
   {
@@ -3870,8 +3870,8 @@
    "avg5": 24.7756,
    "vs_avg5": 0.8373999999999988,
    "vs_avg5_pct": 3.379938326417922,
-   "ok": true,
-   "error": null,
+   "ok": false,
+   "error": "latest period 2026-10-30 older than saved 2026-11-20",
    "checked_at": "2026-11-27T00:00:03+00:00"
   },
   {
@@ -5807,7 +5807,7 @@
    "vs_avg5": 5.490800000000007,
    "vs_avg5_pct": 2.5876662180147,
    "ok": false,
-   "error": "latest period 2026-11-13 older than saved 2026-11-20",
+   "error": "latest period 2026-10-30 older than saved 2026-11-20",
    "checked_at": "2026-11-26T04:09:01+00:00"
   },
   {
@@ -7743,7 +7743,7 @@
    "vs_avg5": -7.048599999999993,
    "vs_avg5_pct": -6.256268606110521,
    "ok": false,
-   "error": "latest period 2026-11-13 older than saved 2026-11-20",
+   "error": "latest period 2026-10-30 older than saved 2026-11-20",
    "checked_at": "2026-11-26T04:09:01+00:00"
   },
   {
@@ -9678,8 +9678,8 @@
    "avg5": 3780.8,
    "vs_avg5": 77.19999999999982,
    "vs_avg5_pct": 2.041895895048662,
-   "ok": true,
-   "error": null,
+   "ok": false,
+   "error": "latest period 2026-10-30 older than saved 2026-11-20",
    "checked_at": "2026-11-27T00:00:03+00:00"
   }
  ]
